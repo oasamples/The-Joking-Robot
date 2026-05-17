@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Joking Robot</title>
+    <style>
+        :root {
+            --bg-color: #083f8b;
+            --text-color: #ffffff;
+            --bubble-stroke: #000000;
+            --pop-yellow: #ffde17;
+            --pop-cyan: #00aeef;
+            --pop-magenta: #ec008c;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Impact', 'Arial Black', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+
+            background-image: 
+                radial-gradient(circle at 50% 50%, transparent 0%, var(--bg-color) 70%),
+                url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><circle cx='12' cy='12' r='3.5' fill='%2300aeef' opacity='0.4'/></svg>");
+            background-size: cover, 24px 24px;
+            background-attachment: fixed;
+        }
+
+        h1 {
+            margin-bottom: 25px;
+            font-size: 2.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--pop-yellow);
+            -webkit-text-stroke: 2px var(--bubble-stroke);
+            text-shadow: 4px 4px 0px var(--pop-magenta), 6px 6px 0px #000;
+            transform: rotate(-2deg);
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .stage-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            gap: 20px;
+            min-height: 350px;
+        }
+
+        /* Responsive Speech Bubble Wrappers that grow fluidly */
+        .bubble-container {
+            position: relative;
+            flex: 1.2;
+            min-width: 280px;
+            max-width: 460px;
+            z-index: 2;
+            opacity: 0;
+            transform: scale(0.8) translateY(20px);
+            transition: opacity 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                        transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        #bubbleContainerBottom {
+            display: none;
+        }
+
+        .bubble-container.show {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+
+        .speech-bubble-svg {
+            width: 100%;
+            height: 100%;
+            min-height: 260px;
+            filter: drop-shadow(6px 8px 0px rgba(0, 0, 0, 0.507));
+            display: block;
+        }
+
+        /* SVG preserves Aspect Ratio intelligently while filling the expanded text boundaries */
+        .speech-bubble-svg fill-container {
+            position: relative;
+        }
+
+        .joke-text-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            /* Extra breathing margins inside vectors to stop clipping on borders */
+            padding: 45px 50px 60px 50px; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #000000;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+            font-weight: 900;
+            font-size: 1.05rem;
+            line-height: 1.45;
+            z-index: 3;
+            word-break: break-word;
+            overflow: hidden;
+        }
+
+        .robot-container {
+            width: 200px;
+            height: 200px; 
+            z-index: 1;
+            transform: rotate(2deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .robot-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(5px 5px 0px #000);
+        }
+
+        .joke-btn {
+            margin-top: 35px;
+            padding: 14px 36px;
+            font-family: 'Impact', sans-serif;
+            font-size: 1.3rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #fff;
+            background-color: var(--pop-magenta);
+            border: 4px solid var(--bubble-stroke);
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 4px 4px 0px #000;
+            transition: all 0.1s ease;
+        }
+
+        .joke-btn:hover {
+            background-color: #ff00a0;
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 6px 6px 0px #000;
+        }
+
+        .joke-btn:active {
+            transform: translateY(4px) scale(0.98);
+            box-shadow: 0px 0px 0px #000;
+        }
+
+        .joke-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: 4px 4px 0px #000 !important;
+        }
+
+        @media (max-width: 820px) {
+            .stage-row {
+                flex-direction: column;
+                gap: 30px;
+            }
+            .robot-container {
+                order: -1;
+            }
+            .bubble-container {
+                max-width: 90%;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>The Joking Robot</h1>
+
+    <div class="container">
+        <div class="stage-row">
+            
+            <div class="bubble-container" id="bubbleContainer">
+                <svg class="speech-bubble-svg" viewBox="0 0 500 350" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                    <g id="flipContainerTop">
+                        <path id="bubblePath" d="" fill="#ffffff" stroke="#000000" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/>
+                    </g>
+                    
+                    <g id="errorExclamation" style="opacity: 0;">
+                        <path d="M 238 80 L 262 80 L 255 195 L 245 195 Z" fill="#ffffff"/>
+                        <circle cx="250" cy="235" r="16" fill="#ffffff" />
+                        <path d="M 235 75 L 259 75 L 252 190 L 242 190 Z" fill="#2d3748"/>
+                        <circle cx="247" cy="230" r="16" fill="#2d3748" />
+                    </g>
+                </svg>
+                <div class="joke-text-overlay" id="jokeText">Powering up joke matrix...</div>
+            </div>
+
+            <div class="robot-container">
+                <img src="" alt="Joking Robot" class="robot-img" id="robotImg" style="opacity: 0;">
+            </div>
+
+            <div class="bubble-container" id="bubbleContainerBottom">
+                <svg class="speech-bubble-svg" viewBox="0 0 500 350" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                    <g id="flipContainerBottom" transform="translate(500, 0) scale(-1, 1)">
+                        <path id="bubblePathBottom" d="" fill="#ffffff" stroke="#000000" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/>
+                    </g>
+                </svg>
+                <div class="joke-text-overlay" id="jokeTextBottom"></div>
+            </div>
+
+        </div>
+
+        <button class="joke-btn" id="jokeBtn" onclick="generateJoke()">Tell Me A Joke!</button>
+    </div>
+
+    <script>
+        const robotImg = document.getElementById('robotImg');
+        const jokeText = document.getElementById('jokeText');
+        const bubbleContainer = document.getElementById('bubbleContainer');
+        const jokeBtn = document.getElementById('jokeBtn');
+        const bubblePath = document.getElementById('bubblePath');
+        const errorExclamation = document.getElementById('errorExclamation');
+
+        const bubbleContainerBottom = document.getElementById('bubbleContainerBottom');
+        const bubblePathBottom = document.getElementById('bubblePathBottom');
+        const jokeTextBottom = document.getElementById('jokeTextBottom');
+        const flipContainerTop = document.getElementById('flipContainerTop');
+        const flipContainerBottom = document.getElementById('flipContainerBottom');
+
+        const colors = {
+            blue: '#00aeef',
+            yellow: '#ffde17',
+            purple: '#e879f9',
+            white: '#f5f3ef',
+            orange: '#f26522',
+            errorYellow: '#fcd34d'
+        };
+
+        const bubbleShapes = [
+            {
+                name: 'classic-oval',
+                color: colors.blue,
+                path: 'M 250 35 C 120 35, 45 75, 45 140 C 45 190, 90 230, 165 245 L 145 285 C 140 295, 155 295, 170 280 L 210 249 C 223 250, 237 250, 250 250 C 380 250, 455 205, 455 140 C 455 75, 380 35, 250 35 Z'
+            },
+            {
+                name: 'tilted-asymmetric',
+                color: colors.yellow,
+                path: 'M 220 35 C 145 30, 65 55, 55 110 C 45 170, 40 210, 45 240 L 25 290 C 20 300, 35 295, 50 280 L 80 248 C 145 275, 290 285, 370 240 C 445 195, 455 120, 420 75 C 375 25, 285 40, 220 35 Z'
+            },
+            {
+                name: 'wide-pill',
+                color: colors.purple,
+                path: 'M 250 35 C 380 35, 455 70, 455 140 C 455 210, 380 250, 250 250 C 197 250, 150 240, 110 225 L 75 265 C 65 275, 60 265, 65 250 L 70 223 C 45 203, 45 175, 45 140 C 45 70, 120 35, 250 35 Z'
+            },
+            {
+                name: 'sloped-wedge',
+                color: colors.white,
+                path: 'M 270 45 C 370 50, 445 95, 445 150 C 445 200, 410 230, 340 245 C 260 260, 155 230, 100 195 L 65 230 C 55 240, 55 225, 60 210 L 65 190 C 45 165, 50 115, 75 90 C 120 50, 190 40, 270 45 Z'
+            },
+            {
+                name: 'pop-art-explosion-burst',
+                color: colors.orange,
+                path: 'M 250 35 L 285 60 L 340 45 L 350 80 L 415 70 L 395 125 L 455 140 L 405 180 L 440 235 L 375 230 L 365 280 L 310 255 L 250 300 L 195 255 L 140 280 L 145 230 L 70 235 L 105 180 L 45 140 L 110 125 L 90 70 L 155 80 L 165 45 L 215 60 Z'
+            }
+        ];
+
+        const errorBubbleShape = {
+            name: 'error-exclamation-bubble',
+            color: colors.errorYellow,
+            path: 'M 45 55 C 45 40, 65 30, 130 28 L 440 20 C 460 20, 465 35, 465 65 L 445 265 C 445 285, 425 295, 340 298 L 150 300 L 80 335 C 70 340, 65 335, 72 315 L 83 285 C 50 280, 45 265, 45 225 Z'
+        };
+
+        function loadImage(src) {
+            return new Promise((resolve) => {
+                robotImg.src = src;
+                robotImg.onload = () => resolve();
+                robotImg.onerror = () => resolve(); 
+            });
+        }
+
+        // SMART DYNAMIC SCALE FUNCTION
+        // Automatically lowers font-size if text length hits high bounds to ensure text always wraps safely inside vectors
+        function fitJokeText(element, text) {
+            const len = text.length;
+            if (len > 140) {
+                element.style.fontSize = "0.85rem";
+                element.style.lineHeight = "1.3";
+            } else if (len > 80) {
+                element.style.fontSize = "0.95rem";
+                element.style.lineHeight = "1.35";
+            } else {
+                element.style.fontSize = "1.05rem";
+                element.style.lineHeight = "1.45";
+            }
+            element.innerHTML = text;
+        }
+
+        function applyBubbleTypography(targetText, bubbleShape, chosenColor) {
+            if (bubbleShape.name === 'pop-art-explosion-burst') {
+                targetText.style.fontFamily = "'Impact', sans-serif";
+                targetText.style.letterSpacing = "0.5px";
+            } else {
+                targetText.style.fontFamily = "'Comic Sans MS', 'Chalkboard SE', sans-serif";
+                targetText.style.letterSpacing = "normal";
+            }
+            targetText.style.color = chosenColor === colors.white ? '#111827' : '#000000';
+        }
+
+        async function generateJoke() {
+            jokeBtn.disabled = true;
+            
+            bubbleContainer.classList.remove('show');
+            bubbleContainerBottom.classList.remove('show');
+            errorExclamation.style.opacity = "0"; 
+
+            jokeText.style.fontFamily = "'Comic Sans MS', 'Chalkboard SE', sans-serif";
+            jokeText.style.fontSize = "1.05rem";
+            jokeText.style.color = "#000000";
+            jokeText.innerText = "Powering up joke matrix...";
+
+            bubbleContainerBottom.style.display = "none";
+
+            const jokePromise = fetch('https://v2.jokeapi.dev/joke/Any?safe-mode')
+                .then(res => { if (!res.ok) throw new Error(); return res.json(); });
+
+            const randomSeed = Math.random().toString(36).substring(2, 10);
+            const robotUrl = `https://robohash.org/${randomSeed}.png?set=set1`;
+            const imagePromise = loadImage(robotUrl);
+
+            try {
+                const [data, _] = await Promise.all([jokePromise, imagePromise]);
+                if (data.error || data == undefined) throw new Error();
+
+                const topBubbleShape = bubbleShapes[Math.floor(Math.random() * bubbleShapes.length)];
+                const jointColorTheme = topBubbleShape.color;
+
+                bubblePath.setAttribute('d', topBubbleShape.path);
+                bubblePath.setAttribute('fill', jointColorTheme);
+
+                console.log('top name:',topBubbleShape.name)
+
+                if (data.type === "single") {
+                    applyBubbleTypography(jokeText, topBubbleShape, jointColorTheme);
+                    fitJokeText(jokeText, data.joke);
+                } 
+                else if (data.type === "twopart") {
+                    applyBubbleTypography(jokeText, topBubbleShape, jointColorTheme);
+                    fitJokeText(jokeText, data.setup);
+
+                    const bottomBubbleShape = bubbleShapes[Math.floor(Math.random() * bubbleShapes.length)];
+                    
+                    bubblePathBottom.setAttribute('d', bottomBubbleShape.path);
+                    bubblePathBottom.setAttribute('fill', jointColorTheme);
+                    
+                    applyBubbleTypography(jokeTextBottom, bottomBubbleShape, jointColorTheme);
+                    fitJokeText(jokeTextBottom, `<strong>${data.delivery}</strong>`);
+
+                    console.log('bottom name:',bottomBubbleShape.name)
+
+                    bubbleContainerBottom.style.display = "block";
+                }
+
+            } catch (error) {
+                await imagePromise; 
+                flipContainerTop.setAttribute('transform', 'matrix(1 0 0 1 0 0)');
+                bubblePath.setAttribute('d', errorBubbleShape.path);
+                bubblePath.setAttribute('fill', errorBubbleShape.color);
+                
+                jokeText.style.fontFamily = "'Impact', 'Arial Black', sans-serif";
+                jokeText.style.fontSize = "1.4rem";
+                jokeText.style.color = "#2d3748";
+                jokeText.innerHTML = "ERROR<br><span style='font-size:1.1rem; font-family:sans-serif; font-weight:bold;'>Joke Not Found</span>";
+                
+                errorExclamation.style.opacity = "0.25";
+            } finally {
+                robotImg.style.opacity = "1";
+                setTimeout(() => {
+                    bubbleContainer.classList.add('show');
+                    if (bubbleContainerBottom.style.display === "block") {
+                        bubbleContainerBottom.classList.add('show');
+                    }
+                    jokeBtn.disabled = false;
+                }, 50);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', generateJoke);
+    </script>
+</body>
+</html>
